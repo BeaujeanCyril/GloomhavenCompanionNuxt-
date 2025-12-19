@@ -15,9 +15,48 @@ const emit = defineEmits<{
 }>()
 
 const { isDarkMode } = useTheme()
+const router = useRouter()
 
 // QR codes générés (base64)
 const qrCodes = ref<Record<string, string>>({})
+
+// Pour rejoindre une partie
+const joinPin = ref('')
+const joinError = ref('')
+const isJoining = ref(false)
+
+const joinGame = async () => {
+  if (joinPin.value.length !== 4) {
+    joinError.value = 'Le code PIN doit contenir 4 chiffres'
+    return
+  }
+
+  joinError.value = ''
+  isJoining.value = true
+
+  try {
+    // Vérifier si le PIN est valide
+    const response = await $fetch(`/api/player-sessions/${joinPin.value}`)
+    if (response) {
+      // Rediriger vers la page joueur
+      emit('close')
+      router.push(`/player/${joinPin.value}`)
+    }
+  } catch (error: unknown) {
+    const err = error as { data?: { statusMessage?: string } }
+    joinError.value = err.data?.statusMessage || 'Code PIN invalide ou expiré'
+  } finally {
+    isJoining.value = false
+  }
+}
+
+const handlePinInput = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  // Ne garder que les chiffres
+  input.value = input.value.replace(/\D/g, '').slice(0, 4)
+  joinPin.value = input.value
+  joinError.value = ''
+}
 
 // Générer les QR codes quand les PINs changent
 watch(() => props.players, async (newPlayers) => {
@@ -213,6 +252,67 @@ const copyUrl = async (pin: string) => {
               :class="isDarkMode ? 'text-gray-500' : 'text-gray-400'">
             Les joueurs peuvent accéder à <span class="font-mono">{{ baseUrl }}/player</span> et entrer leur PIN
           </p>
+        </div>
+
+        <!-- Section Rejoindre une partie -->
+        <div
+            class="p-6 border-t"
+            :class="isDarkMode ? 'border-white/10 bg-slate-900/30' : 'border-gray-200 bg-gray-50'">
+          <h4
+              class="text-lg font-bold mb-4 flex items-center gap-2"
+              :class="isDarkMode ? 'text-white' : 'text-gray-800'">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            Rejoindre une partie
+          </h4>
+          <p
+              class="text-sm mb-4"
+              :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'">
+            Entrez votre code PIN pour rejoindre en tant que joueur
+          </p>
+
+          <div class="flex gap-3 items-start">
+            <div class="flex-1">
+              <input
+                  type="text"
+                  inputmode="numeric"
+                  :value="joinPin"
+                  @input="handlePinInput"
+                  placeholder="0000"
+                  maxlength="4"
+                  class="w-full px-4 py-3 text-2xl font-mono text-center tracking-[0.5em] rounded-xl border-2 transition-all focus:outline-none"
+                  :class="[
+                    isDarkMode
+                      ? 'bg-slate-800 border-slate-600 text-white placeholder-gray-500 focus:border-amber-500'
+                      : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:border-indigo-500',
+                    joinError ? (isDarkMode ? 'border-red-500' : 'border-red-400') : ''
+                  ]"
+                  @keyup.enter="joinGame"
+              />
+              <p
+                  v-if="joinError"
+                  class="text-sm mt-2 text-red-500">
+                {{ joinError }}
+              </p>
+            </div>
+            <button
+                @click="joinGame"
+                :disabled="isJoining || joinPin.length !== 4"
+                class="px-6 py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                :class="isDarkMode
+                  ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white'
+                  : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white'">
+              <span v-if="isJoining" class="flex items-center gap-2">
+                <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Connexion...
+              </span>
+              <span v-else>Rejoindre</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
