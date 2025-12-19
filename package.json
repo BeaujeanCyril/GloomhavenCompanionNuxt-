@@ -23,6 +23,9 @@
     "@prisma/client": "^6.19.0",
     "nuxt": "^3.13.2",
     "pinia": "^2.1.7",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "vue": "^3.5.13",
     "vue-toastification": "^2.0.0-rc.5"
   },
@@ -30,6 +33,7 @@
     "@nuxtjs/tailwindcss": "6.11.4",
     "@pinia/nuxt": "^0.5.1",
     "@types/node": "^20.0.0",
+    "@types/qrcode": "^1.5.6",
     "prisma": "^6.19.0",
     "tailwindcss": "3.4.3",
     "tsx": "^4.7.0"

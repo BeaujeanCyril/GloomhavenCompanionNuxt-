@@ -5,17 +5,80 @@ const appStore = useAppStore()
 // États locaux
 const showPopup = ref(false)
 const showTimerPopup = ref(false)
+const showPinsModal = ref(false)
 const { isFullscreen, toggleFullscreen, handleFullscreenChange } = useFullscreen()
 const { isDarkMode, toggleTheme } = useTheme()
 const { showToast } = useToast()
+const {
+  syncGameState,
+  startGMPolling,
+  stopPolling,
+  isConnected: isSyncConnected
+} = useGameSync()
+
 let roundTimer: NodeJS.Timeout | null = null
 
-// Initialiser le timer au montage
-onMounted(() => {
+// PINs des joueurs
+const playerPins = ref<Array<{ id: number, name: string, pin?: string, isConnected?: boolean }>>([])
+
+// URL de base pour les QR codes
+const baseUrl = computed(() => {
+  if (process.client) {
+    return window.location.origin
+  }
+  return ''
+})
+
+// Initialiser le timer et la synchronisation au montage
+onMounted(async () => {
   startRoundTimer()
 
   // Écouter les changements de fullscreen
   document.addEventListener('fullscreenchange', handleFullscreenChange)
+
+  // Initialiser les PINs depuis les joueurs
+  if (appStore.currentGame?.players) {
+    playerPins.value = appStore.currentGame.players.map(p => ({
+      id: p.id!,
+      name: p.name
+    }))
+  }
+
+  // Synchroniser l'état du jeu et démarrer le polling
+  if (appStore.currentCampaign && appStore.currentScenario && appStore.currentGame) {
+    // Envoyer l'état initial au serveur
+    await syncGameState(
+        appStore.currentCampaign.id!,
+        appStore.currentScenario.id,
+        appStore.currentGame.players
+    )
+
+    // Démarrer le polling pour recevoir les mises à jour des joueurs
+    startGMPolling(
+        appStore.currentCampaign.id!,
+        appStore.currentScenario.id,
+        (updatedPlayers) => {
+          if (appStore.currentGame?.players) {
+            // Mettre à jour les joueurs locaux avec les données du serveur
+            for (const serverPlayer of updatedPlayers) {
+              const localPlayer = appStore.currentGame.players.find((p: { id?: number }) => p.id === serverPlayer.id)
+              if (localPlayer) {
+                // Vérifier si les stats ont changé
+                if (localPlayer.healthPoints !== serverPlayer.healthPoints ||
+                    localPlayer.scenarioXp !== serverPlayer.scenarioXp ||
+                    localPlayer.coins !== serverPlayer.coins) {
+                  localPlayer.healthPoints = serverPlayer.healthPoints
+                  localPlayer.scenarioXp = serverPlayer.scenarioXp
+                  localPlayer.coins = serverPlayer.coins
+                  console.log(`📊 Stats mises à jour pour ${serverPlayer.name}`)
+                }
+              }
+            }
+          }
+        },
+        3000 // Poll toutes les 3 secondes
+    )
+  }
 
   // Debug : Afficher l'état du store
   console.log('=== DEBUG GAME.VUE ===')
@@ -31,12 +94,13 @@ onMounted(() => {
   console.log('=====================')
 })
 
-// Nettoyer le timer au démontage
+// Nettoyer le timer et le polling au démontage
 onUnmounted(() => {
   if (roundTimer) {
     clearTimeout(roundTimer)
   }
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  stopPolling()
 })
 
 // Timer de 5 minutes
@@ -81,21 +145,21 @@ const closeTimerPopup = () => {
 }
 
 const setElementStrong = (id: number) => {
-  const element = appStore.elements.find(e => e.id === id)
+  const element = appStore.elements.find((e: { id: number, state: number }) => e.id === id)
   if (element && (element.state === 0 || element.state === 1)) {
     element.state = 2 // Fort
   }
 }
 
 const useState = (id: number) => {
-  const element = appStore.elements.find(e => e.id === id)
+  const element = appStore.elements.find((e: { id: number, state: number }) => e.id === id)
   if (element) {
     element.state = element.state === 2 ? 0 : (element.state === 1 ? 0 : element.state)
   }
 }
 
 const reduceAllElements = () => {
-  appStore.elements.forEach(element => {
+  appStore.elements.forEach((element: { state: number }) => {
     element.state = element.state === 2 ? 1 : (element.state === 1 ? 0 : element.state)
   })
 }
@@ -106,6 +170,48 @@ const currentRound = computed(() => {
   const { currentRound } = useGame()
   return currentRound(appStore.currentGame)
 })
+
+// Générer les PINs pour les joueurs
+const generatePins = async () => {
+  if (!appStore.currentCampaign || !appStore.currentScenario || !appStore.currentGame) return
+
+  try {
+    const response = await $fetch('/api/player-sessions/generate', {
+      method: 'POST',
+      body: {
+        campaignId: appStore.currentCampaign.id,
+        scenarioId: appStore.currentScenario.id,
+        gameId: appStore.currentScenario.id,
+        players: appStore.currentGame.players.map((p: { id?: number, name: string }) => ({ id: p.id, name: p.name }))
+      }
+    }) as { success: boolean, pins: Array<{ playerId: number, playerName: string, pin: string }> }
+
+    if (response.success) {
+      // Mettre à jour les PINs
+      playerPins.value = response.pins.map(p => ({
+        id: p.playerId,
+        name: p.playerName,
+        pin: p.pin,
+        isConnected: false
+      }))
+      showToast('Codes PIN générés avec succès', 'success')
+    }
+  } catch (error) {
+    console.error('Erreur génération PINs:', error)
+    showToast('Erreur lors de la génération des PINs', 'error')
+  }
+}
+
+// Synchroniser les modifications du GM vers le serveur
+watch(() => appStore.currentGame?.players, async (newPlayers: typeof appStore.currentGame.players | undefined) => {
+  if (newPlayers && appStore.currentCampaign && appStore.currentScenario) {
+    await syncGameState(
+        appStore.currentCampaign.id!,
+        appStore.currentScenario.id,
+        newPlayers
+    )
+  }
+}, { deep: true })
 </script>
 
 <template>
@@ -173,6 +279,16 @@ const currentRound = computed(() => {
               :title="isFullscreen ? 'Quitter plein écran (ESC)' : 'Plein écran (F11)'">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </button>
+
+          <!-- Bouton Connexion Joueurs -->
+          <button
+              @click="showPinsModal = true"
+              class="flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-700 text-white w-10 h-10 rounded-lg font-semibold shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all hover:-translate-y-0.5 flex-shrink-0"
+              title="Connexion des joueurs (QR codes)">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </button>
 
@@ -317,6 +433,15 @@ const currentRound = computed(() => {
         </div>
       </div>
     </Transition>
+
+    <!-- Modal Connexion Joueurs -->
+    <PlayerPinsModal
+        :show="showPinsModal"
+        :players="playerPins"
+        :base-url="baseUrl"
+        @close="showPinsModal = false"
+        @generate-pins="generatePins"
+    />
 
   </div>
 </template>

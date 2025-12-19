@@ -53,7 +53,7 @@ onUnmounted(() => {
 
           <div class="flex items-center gap-2">
             <img
-                src="/img/general/gh.png"
+                src="/img/General/gh.png"
                 alt="Gloomhaven Logo"
                 class="h-12 w-auto object-contain" />
             <span
