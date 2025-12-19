@@ -1,0 +1,121 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = env("DATABASE_PROVIDER")
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id                Int                @id @default(autoincrement())
+  companyName       String
+  players           Player[]
+  campaignScenarios CampaignScenario[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model Player {
+  id              Int          @id @default(autoincrement())
+  name            String
+  healthPointsMax Int
+  coins           Int          @default(0)
+  xp              Int          @default(0)
+  campaignId      Int
+  campaign        Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  deck            Deck?
+  effects         Effect[]
+  playerGames     PlayerGame[]
+}
+
+model Effect {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  duration    Int?
+  playerId    Int
+  player      Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+model Scenario {
+  id                Int                @id
+  name              String
+  imagePath         String
+  campaignScenarios CampaignScenario[]
+}
+
+model CampaignScenario {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  scenarioId Int
+  isFinished Boolean  @default(false)
+  gameId     Int?     @unique
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  game       Game?    @relation(fields: [gameId], references: [id], onDelete: SetNull)
+
+  @@unique([campaignId, scenarioId])
+}
+
+model Game {
+  id               Int               @id @default(autoincrement())
+  dateTimeStarted  DateTime          @default(now())
+  gameState        String?
+  monsterDeckId    Int               @unique
+  monsterDeck      Deck              @relation(fields: [monsterDeckId], references: [id], onDelete: Cascade)
+  rounds           Round[]
+  playerGames      PlayerGame[]
+  campaignScenario CampaignScenario?
+}
+
+model PlayerGame {
+  id           Int    @id @default(autoincrement())
+  playerId     Int
+  gameId       Int
+  healthPoints Int
+  scenarioXp   Int    @default(0)
+  player       Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  game         Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, gameId])
+}
+
+model Round {
+  id          Int      @id @default(autoincrement())
+  roundNumber Int
+  dateTime    DateTime @default(now())
+  gameId      Int
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+}
+
+model Deck {
+  id                 Int     @id @default(autoincrement())
+  name               String
+  isShuffled         Boolean @default(false)
+  isShowingBackCard  Boolean @default(true)
+  playerId           Int?    @unique
+  player             Player? @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  cards              Card[]
+  gameAsMonster      Game?
+}
+
+model Card {
+  id          Int     @id @default(autoincrement())
+  value       String
+  imagePath   String
+  needShuffle Boolean @default(false)
+  isTemporary Boolean @default(false)
+  position    Int     @default(0)
+  inHistoric  Boolean @default(false)
+  deckId      Int
+  deck        Deck    @relation(fields: [deckId], references: [id], onDelete: Cascade)
+}
+
+model Element {
+  id        Int    @id @default(autoincrement())
+  name      String @unique
+  imagePath String
+}

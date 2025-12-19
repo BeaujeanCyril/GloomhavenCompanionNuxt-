@@ -1,0 +1,41 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": [
+      "@nuxt/types",
+      "@types/node"
+    ],
+    "baseUrl": "../GloomhavenCompanionNuxt",
+    "paths": {
+      "~/*": ["./*"],
+      "@/*": ["./*"],
+      "~~/*": ["./*"],
+      "@@/*": ["./*"],
+      "#app": ["./.nuxt/app"],
+      "#imports": ["./.nuxt/imports"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.vue",
+    ".nuxt/**/*"
+  ],
+  "exclude": [
+    "../GloomhavenCompanionNuxt/node_modules",
+    "dist",
+    ".output"
+  ]
+}
