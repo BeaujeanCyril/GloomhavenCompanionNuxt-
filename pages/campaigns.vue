@@ -75,21 +75,21 @@ const confirmDelete = async () => {
 
 <template>
   <div
-      class="min-h-screen p-6 transition-colors duration-300"
+      class="min-h-screen p-4 sm:p-6 transition-colors duration-300"
       :class="isDarkMode
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900'
         : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'">
     <div class="max-w-7xl mx-auto">
 
       <!-- En-tête -->
-      <div class="mb-8">
+      <div class="mb-6 sm:mb-8">
         <h1
-            class="text-4xl font-bold mb-2"
+            class="text-2xl sm:text-4xl font-bold mb-2"
             :class="isDarkMode ? 'text-white' : 'text-gray-800'">
           Campagnes
         </h1>
         <p
-            class="text-lg"
+            class="text-base sm:text-lg"
             :class="isDarkMode ? 'text-white/60' : 'text-gray-600'">
           Gérez vos équipes d'aventuriers
         </p>
@@ -154,24 +154,27 @@ const confirmDelete = async () => {
             </div>
 
             <!-- Boutons d'action -->
-            <div class="flex gap-2">
+            <div class="flex gap-1.5 sm:gap-2">
               <button
                   @click="openEditDialog(campaign)"
-                  class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all hover:-translate-y-0.5">
-                <span class="text-lg">✏️</span>
-                Éditer
+                  class="flex items-center justify-center gap-1 sm:gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold py-2 px-2.5 sm:px-4 rounded-lg shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all hover:-translate-y-0.5"
+                  title="Éditer">
+                <span class="text-base sm:text-lg">✏️</span>
+                <span class="hidden sm:inline text-sm">Éditer</span>
               </button>
               <button
                   @click="openDeleteDialog(campaign)"
-                  class="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg hover:from-red-700 hover:to-red-800 transition-all hover:-translate-y-0.5">
-                <span class="text-lg">🗑️</span>
-                Supprimer
+                  class="flex items-center justify-center gap-1 sm:gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold py-2 px-2.5 sm:px-4 rounded-lg shadow-lg hover:from-red-700 hover:to-red-800 transition-all hover:-translate-y-0.5"
+                  title="Supprimer">
+                <span class="text-base sm:text-lg">🗑️</span>
+                <span class="hidden sm:inline text-sm">Supprimer</span>
               </button>
               <button
                   @click="setCurrentTeamAndNavigate(campaign)"
-                  class="flex items-center gap-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg hover:from-green-700 hover:to-green-800 transition-all hover:-translate-y-0.5">
-                <span class="text-lg">▶️</span>
-                Jouer
+                  class="flex items-center justify-center gap-1 sm:gap-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold py-2 px-2.5 sm:px-4 rounded-lg shadow-lg hover:from-green-700 hover:to-green-800 transition-all hover:-translate-y-0.5"
+                  title="Jouer">
+                <span class="text-base sm:text-lg">▶️</span>
+                <span class="hidden sm:inline text-sm">Jouer</span>
               </button>
             </div>
           </div>
@@ -179,30 +182,30 @@ const confirmDelete = async () => {
           <!-- Liste des joueurs -->
           <div
               v-if="campaign.players && campaign.players.length > 0"
-              class="rounded-xl p-4 transition-colors duration-300"
+              class="rounded-xl p-3 sm:p-4 transition-colors duration-300"
               :class="isDarkMode
                 ? 'bg-slate-800/50 border border-white/10'
                 : 'bg-blue-50/50 border border-gray-200'">
             <h3
-                class="font-semibold mb-3 flex items-center gap-2"
+                class="font-semibold mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base"
                 :class="isDarkMode ? 'text-white' : 'text-gray-800'">
-              <span class="text-xl">👥</span>
+              <span class="text-lg sm:text-xl">👥</span>
               Aventuriers
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
               <div
                   v-for="player in campaign.players"
                   :key="player.id"
-                  class="rounded-lg p-4 transition-all duration-300"
+                  class="rounded-lg p-2.5 sm:p-4 transition-all duration-300"
                   :class="isDarkMode
                     ? 'bg-gradient-to-br from-slate-700/60 to-slate-600/40 border border-white/10 hover:border-white/30'
                     : 'bg-gradient-to-br from-white to-blue-100 border border-gray-200 hover:border-blue-300'">
                 <p
-                    class="font-bold text-lg mb-3"
+                    class="font-bold text-sm sm:text-lg mb-2 sm:mb-3 truncate"
                     :class="isDarkMode ? 'text-white' : 'text-gray-800'">
                   {{ player.name }}
                 </p>
-                <div class="space-y-1 text-sm">
+                <div class="space-y-0.5 sm:space-y-1 text-xs sm:text-sm">
                   <div class="flex justify-between items-center">
                     <span :class="isDarkMode ? 'text-white/60' : 'text-gray-600'">XP</span>
                     <span class="text-blue-400 font-semibold">{{ player.xp }}</span>
@@ -212,7 +215,7 @@ const confirmDelete = async () => {
                     <span class="text-yellow-400 font-semibold">{{ player.coins }}</span>
                   </div>
                   <div class="flex justify-between items-center">
-                    <span :class="isDarkMode ? 'text-white/60' : 'text-gray-600'">HP Max</span>
+                    <span :class="isDarkMode ? 'text-white/60' : 'text-gray-600'">HP</span>
                     <span class="text-red-400 font-semibold">{{ player.healthPointsMax }}</span>
                   </div>
                 </div>
