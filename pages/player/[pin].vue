@@ -13,6 +13,23 @@ const {
   isConnected
 } = useGameSync()
 
+// Effets disponibles dans Gloomhaven avec leurs icônes
+const availableEffects = [
+  { id: 1, name: 'Poison', icon: '☠️', color: 'bg-green-600', darkBg: 'bg-green-900/30', lightBg: 'bg-green-50' },
+  { id: 2, name: 'Wound', icon: '🩸', color: 'bg-red-600', darkBg: 'bg-red-900/30', lightBg: 'bg-red-50' },
+  { id: 3, name: 'Immobilize', icon: '⛓️', color: 'bg-gray-600', darkBg: 'bg-gray-900/30', lightBg: 'bg-gray-100' },
+  { id: 4, name: 'Disarm', icon: '🚫', color: 'bg-orange-600', darkBg: 'bg-orange-900/30', lightBg: 'bg-orange-50' },
+  { id: 5, name: 'Stun', icon: '💫', color: 'bg-yellow-500', darkBg: 'bg-yellow-900/30', lightBg: 'bg-yellow-50' },
+  { id: 6, name: 'Muddle', icon: '🌀', color: 'bg-purple-600', darkBg: 'bg-purple-900/30', lightBg: 'bg-purple-50' },
+  { id: 7, name: 'Invisible', icon: '👻', color: 'bg-blue-400', darkBg: 'bg-blue-900/30', lightBg: 'bg-blue-50' },
+  { id: 8, name: 'Strengthen', icon: '💪', color: 'bg-blue-600', darkBg: 'bg-blue-900/30', lightBg: 'bg-blue-50' },
+]
+
+interface Effect {
+  id?: number
+  name: string
+}
+
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 const playerName = ref('')
@@ -24,6 +41,7 @@ const playerData = ref<{
   healthPointsMax: number
   scenarioXp: number
   coins: number
+  effects?: Effect[]
 } | null>(null)
 const lastSyncTime = ref<Date | null>(null)
 
@@ -125,6 +143,31 @@ const decreaseCoin = async () => {
   }
 }
 
+// Vérifie si un effet est actif sur le joueur
+const hasEffect = (effectName: string): boolean => {
+  return playerData.value?.effects?.some((e: Effect) => e.name === effectName) ?? false
+}
+
+// Toggle un effet sur le joueur
+const toggleEffect = async (effect: { id: number, name: string }) => {
+  if (!playerData.value) return
+
+  if (!playerData.value.effects) {
+    playerData.value.effects = []
+  }
+
+  const index = playerData.value.effects.findIndex((e: Effect) => e.name === effect.name)
+  if (index !== -1) {
+    // Retirer l'effet
+    playerData.value.effects.splice(index, 1)
+  } else {
+    // Ajouter l'effet
+    playerData.value.effects.push({ id: effect.id, name: effect.name })
+  }
+
+  await syncStats()
+}
+
 // Synchroniser les stats avec le serveur
 const syncStats = async () => {
   if (!playerData.value) return
@@ -132,7 +175,8 @@ const syncStats = async () => {
   const result = await updatePlayerStats(pin, {
     healthPoints: playerData.value.healthPoints,
     scenarioXp: playerData.value.scenarioXp,
-    coins: playerData.value.coins
+    coins: playerData.value.coins,
+    effects: playerData.value.effects || []
   })
 
   if (result) {
@@ -368,6 +412,33 @@ const goBack = () => {
                   +
                 </button>
               </div>
+            </div>
+          </div>
+
+          <!-- Effets / Status -->
+          <div
+              class="rounded-2xl p-4"
+              :class="isDarkMode ? 'bg-slate-700/50' : 'bg-gray-100'">
+            <p class="text-sm font-medium mb-3" :class="isDarkMode ? 'text-gray-300' : 'text-gray-700'">
+              Effets actifs
+            </p>
+            <div class="flex flex-wrap justify-center gap-2">
+              <button
+                  v-for="effect in availableEffects"
+                  :key="effect.id"
+                  @click="toggleEffect(effect)"
+                  class="w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all duration-200 border-2 active:scale-95"
+                  :class="[
+                    hasEffect(effect.name)
+                      ? `${effect.color} border-white shadow-lg scale-110`
+                      : isDarkMode
+                        ? 'bg-gray-800/50 border-gray-600 opacity-50 hover:opacity-80 hover:scale-105'
+                        : 'bg-gray-200 border-gray-300 opacity-50 hover:opacity-80 hover:scale-105'
+                  ]"
+                  :title="effect.name"
+              >
+                {{ effect.icon }}
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,11 @@
 // composables/useGameSync.ts
 // Composable pour la synchronisation des données de jeu via HTTP polling
 
+interface Effect {
+  id?: number
+  name: string
+}
+
 export const useGameSync = () => {
   const isConnected = ref(false)
   const lastSync = ref<Date | null>(null)
@@ -14,6 +19,7 @@ export const useGameSync = () => {
     healthPointsMax: number
     scenarioXp: number
     coins: number
+    effects?: Effect[]
   }>) => {
     try {
       await $fetch('/api/game-sync/update', {
@@ -27,7 +33,8 @@ export const useGameSync = () => {
             healthPoints: p.healthPoints,
             healthPointsMax: p.healthPointsMax,
             scenarioXp: p.scenarioXp,
-            coins: p.coins
+            coins: p.coins,
+            effects: p.effects || []
           }))
         }
       })
@@ -52,6 +59,7 @@ export const useGameSync = () => {
             healthPointsMax: number
             scenarioXp: number
             coins: number
+            effects?: Effect[]
           }>
           lastUpdate: string
         } | null
@@ -76,6 +84,7 @@ export const useGameSync = () => {
       healthPointsMax: number
       scenarioXp: number
       coins: number
+      effects?: Effect[]
     }>) => void,
     intervalMs: number = 2000
   ) => {
@@ -110,6 +119,7 @@ export const useGameSync = () => {
           healthPointsMax: number
           scenarioXp: number
           coins: number
+          effects?: Effect[]
         } | null
       }>(`/api/game-sync/player/${pin}`)
 
@@ -128,6 +138,7 @@ export const useGameSync = () => {
     healthPoints?: number
     scenarioXp?: number
     coins?: number
+    effects?: Effect[]
   }) => {
     try {
       const response = await $fetch<{
@@ -139,6 +150,7 @@ export const useGameSync = () => {
           healthPointsMax: number
           scenarioXp: number
           coins: number
+          effects?: Effect[]
         }
       }>(`/api/game-sync/player/${pin}`, {
         method: 'POST',
@@ -163,6 +175,7 @@ export const useGameSync = () => {
       healthPointsMax: number
       scenarioXp: number
       coins: number
+      effects?: Effect[]
     }) => void,
     intervalMs: number = 2000
   ) => {
