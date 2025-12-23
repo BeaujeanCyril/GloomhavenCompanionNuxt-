@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "keycloak-js": "^26.2.2",
     "nuxt": "^3.13.2",
     "pinia": "^2.1.7",
     "qrcode": "^1.5.4",

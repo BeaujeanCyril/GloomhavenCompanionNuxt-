@@ -5,6 +5,11 @@ import {useAppStore} from "../stores/app";
 const appStore = useAppStore()
 const { isDarkMode } = useTheme()
 const router = useRouter()
+const { isAuthenticated, user: authUser, isLoading: authLoading, hasAccess, initKeycloak, login, logout, redirectToPortal } = useAuth()
+
+onMounted(() => {
+  initKeycloak()
+})
 
 // Pour rejoindre une partie
 const joinPin = ref('')
@@ -51,14 +56,56 @@ const handlePinInput = (event: Event) => {
       :class="isDarkMode
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900'
         : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'">
-    <div class="max-w-4xl mx-auto">
+
+    <!-- Loading auth -->
+    <div v-if="authLoading" class="flex justify-center items-center min-h-screen">
+      <span class="text-4xl animate-spin">⚔️</span>
+    </div>
+
+    <!-- Accès refusé -->
+    <div v-else-if="!hasAccess" class="flex flex-col justify-center items-center min-h-screen text-center px-4">
+      <div class="text-6xl mb-6">🚫</div>
+      <h1 class="text-2xl font-bold mb-4" :class="isDarkMode ? 'text-white' : 'text-gray-800'">Accès non autorisé</h1>
+      <p class="mb-6" :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'" v-if="!isAuthenticated">
+        Vous devez vous connecter pour accéder à cette application.
+      </p>
+      <p class="mb-6" :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'" v-else>
+        Vous n'avez pas les droits d'accès à cette application.
+      </p>
+      <div class="flex gap-4">
+        <button v-if="!isAuthenticated" @click="login"
+                class="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500">
+          Se connecter
+        </button>
+        <button @click="redirectToPortal"
+                class="px-6 py-3 rounded-xl font-semibold"
+                :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'">
+          Retour au portail
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div v-else class="max-w-4xl mx-auto">
 
       <!-- En-tête avec logo/titre -->
       <div class="text-center mb-12">
-        <a href="https://cyriongames.fr" class="inline-block mb-4 px-3 py-1 rounded-lg text-sm transition-colors"
-           :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'">
-          ← Portail
-        </a>
+        <div class="flex justify-between items-center max-w-4xl mx-auto mb-4">
+          <a href="https://cyriongames.fr" class="px-3 py-1 rounded-lg text-sm transition-colors"
+             :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'">
+            ← Portail
+          </a>
+          <div class="flex items-center gap-3">
+            <span class="text-sm" :class="isDarkMode ? 'text-gray-400' : 'text-gray-600'">{{ authUser?.name }}</span>
+            <button @click="logout" class="p-2 rounded-lg transition-colors"
+                    :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                    title="Déconnexion">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
+        </div>
         <h1
             class="text-5xl font-bold mb-4 tracking-wide"
             :class="isDarkMode ? 'text-white' : 'text-gray-800'">
