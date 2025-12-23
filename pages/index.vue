@@ -55,6 +55,10 @@ const handlePinInput = (event: Event) => {
 
       <!-- En-tête avec logo/titre -->
       <div class="text-center mb-12">
+        <a href="https://cyriongames.fr" class="inline-block mb-4 px-3 py-1 rounded-lg text-sm transition-colors"
+           :class="isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'">
+          ← Portail
+        </a>
         <h1
             class="text-5xl font-bold mb-4 tracking-wide"
             :class="isDarkMode ? 'text-white' : 'text-gray-800'">
