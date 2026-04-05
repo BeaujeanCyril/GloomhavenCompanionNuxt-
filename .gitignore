@@ -60,3 +60,4 @@ coverage/
 # Large files (GitHub limit 100MB)
 *.pdf
 public/img/Books/
+.claude/settings.local.json
