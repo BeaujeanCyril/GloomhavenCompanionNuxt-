@@ -16,6 +16,14 @@ const {
 
 let stopWs: (() => void) | null = null
 
+// Anti-clobber : le serveur est la source de vérité, mais on ne réapplique pas
+// un état serveur pendant qu'un POST local est en vol (isSyncing) ni juste après
+// une modif locale (fenêtre de grâce), pour ne pas écraser le clic du joueur par
+// l'écho de son propre changement.
+const isSyncing = ref(false)
+let lastLocalEditAt = 0
+const LOCAL_EDIT_GRACE_MS = 2000
+
 // Effets disponibles dans Gloomhaven avec leurs icônes
 const availableEffects = [
   { id: 1, name: 'Poison', icon: '☠️', color: 'bg-green-600', darkBg: 'bg-green-900/30', lightBg: 'bg-green-50' },
@@ -69,17 +77,13 @@ onMounted(async () => {
     }
 
     const applyUpdate = (updatedData: { healthPoints: number; healthPointsMax: number; scenarioXp: number; coins: number; effects?: Effect[] } & { id: number; name: string }) => {
-      if (playerData.value) {
-        const currentData = playerData.value
-        // Ne mettre à jour que si c'est une mise à jour du GM (pas nos propres modifications)
-        if (updatedData.healthPointsMax !== currentData.healthPointsMax) {
-          playerData.value = updatedData
-          lastSyncTime.value = new Date()
-        }
-      } else {
-        playerData.value = updatedData
-        lastSyncTime.value = new Date()
-      }
+      // Ne pas écraser une modif locale encore en vol ou toute récente.
+      if (isSyncing.value) return
+      if (Date.now() - lastLocalEditAt < LOCAL_EDIT_GRACE_MS) return
+      // Sinon on adopte l'état serveur : il reflète les changements du GM,
+      // d'un autre joueur, ou notre propre modif déjà confirmée.
+      playerData.value = updatedData
+      lastSyncTime.value = new Date()
     }
 
     // Démarrer le polling pour recevoir les mises à jour du GM (failsafe)
@@ -183,15 +187,21 @@ const toggleEffect = async (effect: { id: number, name: string }) => {
 const syncStats = async () => {
   if (!playerData.value) return
 
-  const result = await updatePlayerStats(pin, {
-    healthPoints: playerData.value.healthPoints,
-    scenarioXp: playerData.value.scenarioXp,
-    coins: playerData.value.coins,
-    effects: playerData.value.effects || []
-  })
+  lastLocalEditAt = Date.now()
+  isSyncing.value = true
+  try {
+    const result = await updatePlayerStats(pin, {
+      healthPoints: playerData.value.healthPoints,
+      scenarioXp: playerData.value.scenarioXp,
+      coins: playerData.value.coins,
+      effects: playerData.value.effects || []
+    })
 
-  if (result) {
-    lastSyncTime.value = new Date()
+    if (result) {
+      lastSyncTime.value = new Date()
+    }
+  } finally {
+    isSyncing.value = false
   }
 }
 
