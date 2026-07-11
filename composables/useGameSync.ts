@@ -200,6 +200,86 @@ export const useGameSync = () => {
     isConnected.value = false
   }
 
+  // WebSocket : connecte /_ws/game/<campaignId>/<scenarioId> et déclenche
+  // onTrigger à chaque event reçu. Le polling reste actif en parallèle (failsafe).
+  // Retourne une fonction stop.
+  const startGameWebSocket = (
+    campaignId: number,
+    scenarioId: number,
+    onTrigger: () => void
+  ): (() => void) => {
+    if (typeof window === 'undefined') return () => {}
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const url = `${proto}//${window.location.host}/_ws/game/${campaignId}/${scenarioId}`
+    let socket: WebSocket | null = null
+    let stopped = false
+    let reconnectAttempts = 0
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let pingTimer: ReturnType<typeof setInterval> | null = null
+
+    const cleanup = () => {
+      if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+    }
+
+    const scheduleReconnect = () => {
+      if (stopped || reconnectTimer) return
+      const delay = Math.min(30_000, 500 * 2 ** Math.min(reconnectAttempts, 6))
+      reconnectAttempts++
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null
+        connect()
+      }, delay)
+    }
+
+    const connect = () => {
+      if (stopped) return
+      try {
+        socket = new WebSocket(url)
+      } catch {
+        scheduleReconnect()
+        return
+      }
+      socket.onopen = () => {
+        reconnectAttempts = 0
+        if (pingTimer) clearInterval(pingTimer)
+        pingTimer = setInterval(() => {
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            try { socket.send('ping') } catch {}
+          }
+        }, 30_000)
+      }
+      socket.onmessage = (ev) => {
+        try {
+          const evt = JSON.parse(ev.data) as { type?: string }
+          if (evt.type === 'hello' || evt.type === 'pong' || evt.type === 'error') return
+          onTrigger()
+        } catch {
+          // ignore
+        }
+      }
+      socket.onclose = () => {
+        if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
+        socket = null
+        scheduleReconnect()
+      }
+      socket.onerror = () => {
+        // onclose suivra
+      }
+    }
+
+    connect()
+
+    return () => {
+      stopped = true
+      cleanup()
+      if (socket) {
+        try { socket.close() } catch {}
+        socket = null
+      }
+    }
+  }
+
   return {
     isConnected,
     lastSync,
@@ -209,6 +289,7 @@ export const useGameSync = () => {
     updatePlayerStats,
     startGMPolling,
     startPlayerPolling,
-    stopPolling
+    stopPolling,
+    startGameWebSocket
   }
 }

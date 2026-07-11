@@ -2,6 +2,7 @@
 // Endpoint pour qu'un joueur mette à jour ses stats
 import { getSession } from '~/server/utils/playerSessions'
 import { updatePlayerStats, getPlayerData } from '~/server/utils/gameSync'
+import { broadcast } from '~/server/utils/wsHub'
 
 export default defineEventHandler(async (event) => {
   const pin = event.context.params?.pin
@@ -44,6 +45,11 @@ export default defineEventHandler(async (event) => {
 
   // Retourner les données mises à jour
   const playerData = getPlayerData(session.campaignId, session.gameId, session.playerId)
+
+  broadcast(session.campaignId, session.gameId, {
+    type: 'player.stats.updated',
+    data: { playerId: session.playerId, stats: body }
+  })
 
   return {
     success: true,

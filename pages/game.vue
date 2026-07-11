@@ -11,12 +11,15 @@ const { isDarkMode, toggleTheme } = useTheme()
 const { showToast } = useToast()
 const {
   syncGameState,
+  fetchGameState,
   startGMPolling,
   stopPolling,
+  startGameWebSocket,
   isConnected: isSyncConnected
 } = useGameSync()
 
 let roundTimer: NodeJS.Timeout | null = null
+let stopWs: (() => void) | null = null
 
 // PINs des joueurs
 const playerPins = ref<Array<{ id: number, name: string, pin?: string, isConnected?: boolean }>>([])
@@ -53,30 +56,39 @@ onMounted(async () => {
         appStore.currentGame.players
     )
 
-    // Démarrer le polling pour recevoir les mises à jour des joueurs
+    const applyPlayersUpdate = (updatedPlayers: Array<{ id: number; name: string; healthPoints: number; scenarioXp: number; coins: number }>) => {
+      if (!appStore.currentGame?.players) return
+      for (const serverPlayer of updatedPlayers) {
+        const localPlayer = appStore.currentGame.players.find((p: { id?: number }) => p.id === serverPlayer.id)
+        if (localPlayer) {
+          if (localPlayer.healthPoints !== serverPlayer.healthPoints ||
+              localPlayer.scenarioXp !== serverPlayer.scenarioXp ||
+              localPlayer.coins !== serverPlayer.coins) {
+            localPlayer.healthPoints = serverPlayer.healthPoints
+            localPlayer.scenarioXp = serverPlayer.scenarioXp
+            localPlayer.coins = serverPlayer.coins
+            console.log(`📊 Stats mises à jour pour ${serverPlayer.name}`)
+          }
+        }
+      }
+    }
+
+    // Démarrer le polling pour recevoir les mises à jour des joueurs (failsafe)
     startGMPolling(
         appStore.currentCampaign.id!,
         appStore.currentScenario.id,
-        (updatedPlayers) => {
-          if (appStore.currentGame?.players) {
-            // Mettre à jour les joueurs locaux avec les données du serveur
-            for (const serverPlayer of updatedPlayers) {
-              const localPlayer = appStore.currentGame.players.find((p: { id?: number }) => p.id === serverPlayer.id)
-              if (localPlayer) {
-                // Vérifier si les stats ont changé
-                if (localPlayer.healthPoints !== serverPlayer.healthPoints ||
-                    localPlayer.scenarioXp !== serverPlayer.scenarioXp ||
-                    localPlayer.coins !== serverPlayer.coins) {
-                  localPlayer.healthPoints = serverPlayer.healthPoints
-                  localPlayer.scenarioXp = serverPlayer.scenarioXp
-                  localPlayer.coins = serverPlayer.coins
-                  console.log(`📊 Stats mises à jour pour ${serverPlayer.name}`)
-                }
-              }
-            }
-          }
-        },
+        applyPlayersUpdate,
         3000 // Poll toutes les 3 secondes
+    )
+
+    // WebSocket en parallèle : push instantané des changements
+    stopWs = startGameWebSocket(
+        appStore.currentCampaign.id!,
+        appStore.currentScenario.id,
+        async () => {
+          const state = await fetchGameState(appStore.currentCampaign!.id!, appStore.currentScenario!.id)
+          if (state && state.players) applyPlayersUpdate(state.players)
+        }
     )
   }
 
@@ -101,6 +113,7 @@ onUnmounted(() => {
   }
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   stopPolling()
+  if (stopWs) { stopWs(); stopWs = null }
 })
 
 // Timer de 5 minutes

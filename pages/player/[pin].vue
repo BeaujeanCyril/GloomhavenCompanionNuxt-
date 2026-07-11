@@ -10,8 +10,11 @@ const {
   updatePlayerStats,
   startPlayerPolling,
   stopPolling,
+  startGameWebSocket,
   isConnected
 } = useGameSync()
+
+let stopWs: (() => void) | null = null
 
 // Effets disponibles dans Gloomhaven avec leurs icônes
 const availableEffects = [
@@ -65,24 +68,31 @@ onMounted(async () => {
       lastSyncTime.value = new Date()
     }
 
-    // Démarrer le polling pour recevoir les mises à jour du GM
-    startPlayerPolling(
-        pin,
-        (updatedData) => {
-          // Vérifier si les données ont changé (mises à jour du GM)
-          if (playerData.value) {
-            const currentData = playerData.value
-            // Ne mettre à jour que si c'est une mise à jour du GM (pas nos propres modifications)
-            if (updatedData.healthPointsMax !== currentData.healthPointsMax) {
-              playerData.value = updatedData
-              lastSyncTime.value = new Date()
-            }
-          } else {
-            playerData.value = updatedData
-            lastSyncTime.value = new Date()
-          }
-        },
-        3000 // Poll toutes les 3 secondes
+    const applyUpdate = (updatedData: { healthPoints: number; healthPointsMax: number; scenarioXp: number; coins: number; effects?: Effect[] } & { id: number; name: string }) => {
+      if (playerData.value) {
+        const currentData = playerData.value
+        // Ne mettre à jour que si c'est une mise à jour du GM (pas nos propres modifications)
+        if (updatedData.healthPointsMax !== currentData.healthPointsMax) {
+          playerData.value = updatedData
+          lastSyncTime.value = new Date()
+        }
+      } else {
+        playerData.value = updatedData
+        lastSyncTime.value = new Date()
+      }
+    }
+
+    // Démarrer le polling pour recevoir les mises à jour du GM (failsafe)
+    startPlayerPolling(pin, applyUpdate, 3000)
+
+    // WebSocket en parallèle : push instantané quand le GM ou un autre joueur change l'état
+    stopWs = startGameWebSocket(
+        response.session.campaignId,
+        response.session.gameId,
+        async () => {
+          const r = await fetchPlayerData(pin)
+          if (r && r.playerData) applyUpdate(r.playerData)
+        }
     )
 
   } catch (e: unknown) {
@@ -96,6 +106,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopPolling()
+  if (stopWs) { stopWs(); stopWs = null }
 })
 
 // Fonctions de modification des stats
